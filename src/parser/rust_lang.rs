@@ -50,40 +50,6 @@ impl LanguageParser for RustLangParser {
         &["function_item"]
     }
 
-    fn get_annotations(&self, node: Node) -> Vec<String> {
-        // #[attr] nodes are preceding siblings of type attribute_item
-        let parent = match node.parent() {
-            Some(p) => p,
-            None => return vec![],
-        };
-        let mut attrs = vec![];
-        for child in parent.children(&mut parent.walk()) {
-            if child == node {
-                break;
-            }
-            if child.kind() == "attribute_item" {
-                attrs.push(self.0.text(child).to_string());
-            } else {
-                // Only keep immediately preceding attributes
-                attrs.clear();
-            }
-        }
-        attrs
-    }
-
-    fn enclosing_class(&self, node: Node) -> Option<String> {
-        let mut parent = node.parent();
-        while let Some(p) = parent {
-            if p.kind() == "impl_item" {
-                if let Some(type_node) = p.child_by_field_name("type") {
-                    return Some(self.0.text(type_node).to_string());
-                }
-            }
-            parent = p.parent();
-        }
-        None
-    }
-
     fn build_signature(&self, node: Node) -> String {
         let core = &self.0;
         let mut parts = vec![];
@@ -116,5 +82,39 @@ impl LanguageParser for RustLangParser {
         } else {
             sig
         }
+    }
+
+    fn get_annotations(&self, node: Node) -> Vec<String> {
+        // #[attr] nodes are preceding siblings of type attribute_item
+        let parent = match node.parent() {
+            Some(p) => p,
+            None => return vec![],
+        };
+        let mut attrs = vec![];
+        for child in parent.children(&mut parent.walk()) {
+            if child == node {
+                break;
+            }
+            if child.kind() == "attribute_item" {
+                attrs.push(self.0.text(child).to_string());
+            } else {
+                // Only keep immediately preceding attributes
+                attrs.clear();
+            }
+        }
+        attrs
+    }
+
+    fn enclosing_class(&self, node: Node) -> Option<String> {
+        let mut parent = node.parent();
+        while let Some(p) = parent {
+            if p.kind() == "impl_item" {
+                if let Some(type_node) = p.child_by_field_name("type") {
+                    return Some(self.0.text(type_node).to_string());
+                }
+            }
+            parent = p.parent();
+        }
+        None
     }
 }

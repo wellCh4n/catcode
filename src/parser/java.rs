@@ -53,23 +53,6 @@ impl LanguageParser for JavaParser {
         &["method_declaration", "constructor_declaration"]
     }
 
-    fn get_annotations(&self, node: Node) -> Vec<String> {
-        // Annotations are children of the modifiers node
-        let mut annotations = vec![];
-        for child in node.children(&mut node.walk()) {
-            if child.kind() == "modifiers" {
-                for mod_child in child.children(&mut child.walk()) {
-                    if mod_child.kind() == "marker_annotation"
-                        || mod_child.kind() == "annotation"
-                    {
-                        annotations.push(self.0.text(mod_child).to_string());
-                    }
-                }
-            }
-        }
-        annotations
-    }
-
     fn build_signature(&self, node: Node) -> String {
         let core = &self.0;
         let mut parts = vec![];
@@ -103,6 +86,23 @@ impl LanguageParser for JavaParser {
         }
 
         parts.join(" ")
+    }
+
+    fn get_annotations(&self, node: Node) -> Vec<String> {
+        // Annotations are children of the modifiers node
+        let mut annotations = vec![];
+        for child in node.children(&mut node.walk()) {
+            if child.kind() == "modifiers" {
+                for mod_child in child.children(&mut child.walk()) {
+                    if mod_child.kind() == "marker_annotation"
+                        || mod_child.kind() == "annotation"
+                    {
+                        annotations.push(self.0.text(mod_child).to_string());
+                    }
+                }
+            }
+        }
+        annotations
     }
 
     fn get_class_skeleton(&self, name: &str) -> Option<ClassInfo> {

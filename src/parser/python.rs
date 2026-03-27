@@ -46,20 +46,6 @@ impl LanguageParser for PythonParser {
         &["function_definition"]
     }
 
-    fn get_annotations(&self, node: Node) -> Vec<String> {
-        // Decorators live in decorated_definition parent
-        if let Some(parent) = node.parent() {
-            if parent.kind() == "decorated_definition" {
-                return parent
-                    .children(&mut parent.walk())
-                    .filter(|c| c.kind() == "decorator")
-                    .map(|c| self.0.text(c).to_string())
-                    .collect();
-            }
-        }
-        vec![]
-    }
-
     fn build_signature(&self, node: Node) -> String {
         let core = &self.0;
         let name = node.child_by_field_name("name").map(|n| core.text(n)).unwrap_or("");
@@ -77,5 +63,19 @@ impl LanguageParser for PythonParser {
         } else {
             sig
         }
+    }
+
+    fn get_annotations(&self, node: Node) -> Vec<String> {
+        // Decorators live in decorated_definition parent
+        if let Some(parent) = node.parent() {
+            if parent.kind() == "decorated_definition" {
+                return parent
+                    .children(&mut parent.walk())
+                    .filter(|c| c.kind() == "decorator")
+                    .map(|c| self.0.text(c).to_string())
+                    .collect();
+            }
+        }
+        vec![]
     }
 }

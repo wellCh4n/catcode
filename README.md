@@ -10,12 +10,25 @@ uv pip install -e .
 
 ## Commands
 
+### Single file
+
 ```bash
 catcode -f <file>               # list all methods (grouped by class)
 catcode -f <file> -m <method>   # show method body, class, and outgoing calls
 catcode -f <file> -c            # list all classes / structs
 catcode -f <file> -c <class>    # show class skeleton (fields + methods)
 ```
+
+### Directory (recursive scan)
+
+```bash
+catcode -d <dir>                # list all methods across all supported files
+catcode -d <dir> -m <method>    # find and show method across all files
+catcode -d <dir> -c             # list all classes across all files
+catcode -d <dir> -c <class>     # find and show class skeleton across all files
+```
+
+Results are grouped by file path. Files that fail to parse are silently skipped.
 
 ---
 

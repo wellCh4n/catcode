@@ -5,7 +5,8 @@ A CLI tool for reading code structure via AST parsing, designed for progressive 
 ## Installation
 
 ```bash
-uv pip install -e .
+cargo build --release
+# binary at: target/release/catcode
 ```
 
 ## Commands
@@ -17,6 +18,7 @@ catcode -f <file>               # list all methods (grouped by class)
 catcode -f <file> -m <method>   # show method body, class, and outgoing calls
 catcode -f <file> -c            # list all classes / structs
 catcode -f <file> -c <class>    # show class skeleton (fields + methods)
+catcode -f <file> -r <method>   # find callers of method in this file
 ```
 
 ### Directory (recursive scan)
@@ -26,6 +28,7 @@ catcode -d <dir>                # list all methods across all supported files
 catcode -d <dir> -m <method>    # find and show method across all files
 catcode -d <dir> -c             # list all classes across all files
 catcode -d <dir> -c <class>     # find and show class skeleton across all files
+catcode -d <dir> -r <method>    # find all callers of method across all files
 ```
 
 Results are grouped by file path. Files that fail to parse are silently skipped.
@@ -41,34 +44,13 @@ Results are grouped by file path. Files that fail to parse are silently skipped.
 | List methods | ✅ grouped by class, with modifiers + annotations + return type + params |
 | Show method | ✅ body, line range, class, outgoing calls |
 | List classes | ✅ class / interface / enum |
-| Class skeleton | ✅ class-level annotations, extends, implements, fields (with annotations), methods (with annotations) |
+| Class skeleton | ✅ class-level annotations, extends, implements, fields, methods |
 
 ```bash
 catcode -f UserService.java
 catcode -f UserService.java -m createUser
 catcode -f UserService.java -c
 catcode -f UserService.java -c UserService
-```
-
-Example method list:
-```
-**UserService**
-- `@Autowired public UserService(UserRepository repo)`
-- `@GetMapping("/users") public List<User> getUsers()`
-- `@PostMapping public User createUser(@RequestBody UserDto dto)`
-```
-
-Example class skeleton:
-```
-`@Service` `@Transactional`
-## class `UserService` extends `BaseService` implements `UserOps`
-
-**Fields**
-- `@Autowired private final UserRepository repo`
-
-**Methods**
-- `@Autowired public UserService(UserRepository repo)`
-- `@GetMapping("/users") public List<User> getUsers()`
 ```
 
 ---
@@ -80,21 +62,13 @@ Example class skeleton:
 | List methods | ✅ grouped by class, with decorators + params + return type annotation |
 | Show method | ✅ body, line range, class, outgoing calls |
 | List classes | ✅ |
-| Class skeleton | ❌ |
+| Class skeleton | ✅ fields + methods |
 
 ```bash
 catcode -f views.py
 catcode -f views.py -m get_users
 catcode -f views.py -c
-```
-
-Example method list:
-```
-**UserView**
-- `@login_required @permission_required("admin") def get_users(self, request: Request) -> Response`
-
-**(top-level)**
-- `def helper(x: int) -> str`
+catcode -f views.py -c UserView
 ```
 
 ---
@@ -115,16 +89,6 @@ catcode -f adaptor.go -c
 catcode -f adaptor.go -c Adaptor
 ```
 
-Example method list:
-```
-**Adaptor**
-- `func (a *Adaptor) ConvertRequest(c *gin.Context, info *RelayInfo) (any, error)`
-- `func (a *Adaptor) GetRequestURL(info *RelayInfo) (string, error)`
-
-**(top-level)**
-- `func shouldAppendQuery(info *RelayInfo) bool`
-```
-
 ---
 
 ### Rust `.rs`
@@ -134,19 +98,13 @@ Example method list:
 | List methods | ✅ grouped by impl type, with visibility + attributes + params + return type |
 | Show method | ✅ body, line range, impl type, outgoing calls |
 | List types | ✅ struct / impl |
-| Type skeleton | ❌ |
+| Type skeleton | ✅ fields + methods |
 
 ```bash
 catcode -f client.rs
 catcode -f client.rs -m send_request
 catcode -f client.rs -c
-```
-
-Example method list:
-```
-**Client**
-- `#[tracing::instrument] pub fn send_request(&self, url: &str) -> Result<Response>`
-- `pub fn new(config: Config) -> Self`
+catcode -f client.rs -c Client
 ```
 
 ---
@@ -158,19 +116,13 @@ Example method list:
 | List methods | ✅ grouped by class, with decorators + params + return type |
 | Show method | ✅ body, line range, class, outgoing calls |
 | List classes | ✅ |
-| Class skeleton | ❌ |
+| Class skeleton | ✅ fields + methods |
 
 ```bash
 catcode -f user.service.ts
 catcode -f user.service.ts -m getUsers
 catcode -f user.service.ts -c
-```
-
-Example method list:
-```
-**UserService**
-- `@Get("/users") getUsers(query: QueryDto): Promise<User[]>`
-- `@Post() createUser(@Body() dto: CreateUserDto): Promise<User>`
+catcode -f user.service.ts -c UserService
 ```
 
 ---
@@ -182,7 +134,7 @@ Example method list:
 | List methods | ✅ grouped by class, with params |
 | Show method | ✅ body, line range, class, outgoing calls |
 | List classes | ✅ |
-| Class skeleton | ❌ |
+| Class skeleton | ✅ methods |
 
 ---
 
@@ -190,8 +142,8 @@ Example method list:
 
 | Feature | Support |
 |---------|---------|
-| List methods | ✅ return type + name + params (no class grouping) |
-| Show method | ✅ body, line range, outgoing calls |
+| List methods | ✅ return type + name + params |
+| Show method | ✅ body, line range |
 | List classes | ❌ |
 | Class skeleton | ❌ |
 
@@ -201,7 +153,7 @@ Example method list:
 
 | Feature | Support |
 |---------|---------|
-| List methods | ✅ method name only |
+| List methods | ✅ |
 | Show method | ✅ body, line range |
-| List classes | ❌ |
-| Class skeleton | ❌ |
+| List classes | ✅ |
+| Class skeleton | ✅ methods |

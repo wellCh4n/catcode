@@ -15,18 +15,18 @@ class MethodInfo:
 class ClassInfo:
     name: str
     kind: str                    # class / interface / struct / ...
-    annotations: list[str]       # 类级别的注解/装饰器
+    annotations: list[str]       # class-level annotations or decorators
     superclass: str | None
     interfaces: list[str]
-    fields: list[str]            # 已格式化的签名字符串（含注解）
-    methods: list[str]           # 已格式化的签名字符串（含注解）
+    fields: list[str]            # pre-formatted signature strings (including annotations)
+    methods: list[str]           # pre-formatted signature strings (including annotations)
 
 
 class BaseParser:
     LANG: str = ""
-    QUERY: str = ""              # 捕获 @method / @name
-    CLASSES_QUERY: str = ""      # 捕获 @class / @name
-    CALLS_QUERY: str = ""        # 在方法节点上运行，捕获 @call
+    QUERY: str = ""              # captures @method / @name
+    CLASSES_QUERY: str = ""      # captures @class / @name
+    CALLS_QUERY: str = ""        # run on a method node, captures @call
     CLASS_NODE_TYPES: list[str] = []
 
     def __init__(self, file_path: str):
@@ -43,13 +43,13 @@ class BaseParser:
     def _captures(self):
         return QueryCursor(self._query).captures(self._tree.root_node)
 
-    # ── 注解/装饰器（子类覆写） ───────────────────────────────────────────────
+    # ── annotations / decorators (override per language) ─────────────────────
 
     def _get_annotations(self, node) -> list[str]:
-        """返回该节点的注解/装饰器字符串列表，子类按语言覆写"""
+        """Return annotation/decorator strings for this node. Override per language."""
         return []
 
-    # ── 找到节点所在的类 ──────────────────────────────────────────────────────
+    # ── enclosing class lookup ────────────────────────────────────────────────
 
     def _enclosing_class(self, node) -> str | None:
         parent = node.parent
@@ -61,7 +61,7 @@ class BaseParser:
             parent = parent.parent
         return None
 
-    # ── 方法签名（子类覆写） ──────────────────────────────────────────────────
+    # ── method signature (override per language) ─────────────────────────────
 
     def _build_signature(self, node) -> str:
         annotations = self._get_annotations(node)
@@ -71,7 +71,7 @@ class BaseParser:
             return " ".join(annotations) + " " + sig
         return sig
 
-    # ── 方法列表 ─────────────────────────────────────────────────────────────
+    # ── method list ───────────────────────────────────────────────────────────
 
     def list_methods(self) -> list[tuple[str | None, str]]:
         captures = self._captures()
@@ -82,7 +82,7 @@ class BaseParser:
             for m in captures["method"]
         ]
 
-    # ── 方法详情 ─────────────────────────────────────────────────────────────
+    # ── method detail ─────────────────────────────────────────────────────────
 
     def _get_calls(self, method_node) -> list[str]:
         if not self.CALLS_QUERY:
@@ -101,7 +101,7 @@ class BaseParser:
         return result
 
     def _method_name(self, node) -> str | None:
-        """从方法节点取名字，子类可覆写处理特殊节点类型"""
+        """Extract method name from node via field access. Override for special node types."""
         name_node = node.child_by_field_name("name")
         return self._text(name_node) if name_node else None
 
@@ -120,7 +120,7 @@ class BaseParser:
             )
         return None
 
-    # ── 类列表 ───────────────────────────────────────────────────────────────
+    # ── class list ────────────────────────────────────────────────────────────
 
     def list_classes(self) -> list[str]:
         if not self.CLASSES_QUERY:
@@ -131,7 +131,7 @@ class BaseParser:
             return []
         return [self._text(n) for n in captures["name"]]
 
-    # ── 类骨架（子类覆写） ────────────────────────────────────────────────────
+    # ── class skeleton (override per language) ────────────────────────────────
 
     def get_class_skeleton(self, name: str) -> ClassInfo | None:
         return None

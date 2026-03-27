@@ -42,6 +42,7 @@ class GoParser(BaseParser):
         return " ".join(parts)
 
     def _enclosing_class(self, node) -> str | None:
+        # Go methods are associated with a type via the receiver, not lexical nesting
         receiver = node.child_by_field_name("receiver")
         if receiver:
             for child in receiver.children:
@@ -56,7 +57,7 @@ class GoParser(BaseParser):
         return None
 
     def get_class_skeleton(self, name: str) -> ClassInfo | None:
-        # 找 struct 定义
+        # find the struct definition
         query = Query(self._language, self.CLASSES_QUERY)
         captures = QueryCursor(query).captures(self._tree.root_node)
 
@@ -66,13 +67,13 @@ class GoParser(BaseParser):
         type_spec_node = None
         for cls_node, name_node in zip(captures["class"], captures["name"]):
             if self._text(name_node) == name:
-                type_spec_node = cls_node  # type_spec
+                type_spec_node = cls_node  # type_spec node
                 break
 
         if type_spec_node is None:
             return None
 
-        # 提取 struct 字段
+        # extract struct fields
         fields = []
         struct_type = type_spec_node.child_by_field_name("type")
         if struct_type and struct_type.type == "struct_type":
@@ -82,7 +83,7 @@ class GoParser(BaseParser):
                         if decl.type == "field_declaration":
                             fields.append(self._text(decl))
 
-        # 收集 receiver 类型匹配的方法
+        # collect methods whose receiver type matches this struct
         method_captures = QueryCursor(self._query).captures(self._tree.root_node)
         methods = []
         if "method" in method_captures:

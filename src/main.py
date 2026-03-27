@@ -7,7 +7,7 @@ def print_method_list(methods: list[tuple[str | None, str]]) -> None:
     if not methods:
         print("(no methods found)")
         return
-    # 按 class 分组
+    # group by class
     groups: dict[str, list[str]] = {}
     for class_name, sig in methods:
         key = class_name or "(top-level)"
@@ -64,16 +64,16 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(prog="catcode")
-    parser.add_argument("-f", "--file", required=True, help="源文件路径")
+    parser.add_argument("-f", "--file", required=True, help="source file path")
     parser.add_argument(
         "-m", "--method", nargs="?", const="__list__", default=None,
         metavar="METHOD_NAME",
-        help="不带参数时列出所有方法；带方法名时显示方法详情",
+        help="list all methods when used alone; show method detail when a name is given",
     )
     parser.add_argument(
         "-c", "--class", dest="cls", nargs="?", const="__list__", default=None,
         metavar="CLASS_NAME",
-        help="不带参数时列出所有类；带类名时显示类骨架",
+        help="list all classes when used alone; show class skeleton when a name is given",
     )
     args = parser.parse_args()
 

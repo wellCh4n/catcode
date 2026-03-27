@@ -10,8 +10,8 @@ class CParser(BaseParser):
     """
 
     def _build_signature(self, node) -> str:
-        # C: type declarator(params)
-        # declarator field 包含 function_declarator -> identifier + parameter_list
+        # C signature: return_type function_declarator(params)
+        # declarator field contains function_declarator -> identifier + parameter_list
         ret_type = node.child_by_field_name("type")
         declarator = node.child_by_field_name("declarator")  # function_declarator
         if declarator:

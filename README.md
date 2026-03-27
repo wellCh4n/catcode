@@ -2,6 +2,8 @@
 
 A CLI tool for reading code structure via AST parsing, designed for progressive code exploration with LLMs.
 
+![logo.png](images/logo.png)
+
 ## Installation
 
 ```bash

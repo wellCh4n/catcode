@@ -1,6 +1,6 @@
 # catcode
 
-A CLI tool for reading code structure via AST parsing, designed for progressive code exploration with LLMs.
+CatCode: Progressive Code Reading Skill for LLMs
 
 ![logo.png](images/logo.png)
 

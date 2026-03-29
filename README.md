@@ -15,20 +15,23 @@ cargo build --release
 
 | Flag | Description |
 |------|-------------|
-| `-f <file>` | Source file to analyze |
-| `-m <method>` | Show method detail (body, line range, calls) |
+| `-f <file>` | Source file to analyze (shows class structure: fields + methods) |
+| `-m <method>` | Show method detail (body, line range, params, return type) |
 | `-c` | List all classes/structs/types |
 | `-c <name>` | Show class skeleton (fields + methods) |
 | `-i` | List imports/dependencies |
 | `-I [<class>]` | Show inheritance hierarchy (all classes or specific one) |
 | `-d <dir>` | Scan directory for all files |
+| `-n <pattern>` | Find file by name pattern within directory (use with -d) |
 | `-x <n>` | Max files to process in directory mode |
+| `--json` | Output JSON format |
 
 ### Directory Scanning
 
 ```bash
 catcode -d ./src                    # scan directory, detect languages
 catcode -d ./src -x 10              # limit to 10 files
+catcode -d ./src -n UserService     # find file by name pattern
 ```
 
 ---

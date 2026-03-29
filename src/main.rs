@@ -25,6 +25,10 @@ struct Cli {
     #[arg(short = 'd', long)]
     dir: Option<String>,
 
+    /// Find file by name pattern within directory (use with -d)
+    #[arg(short = 'n', long)]
+    find: Option<String>,
+
     /// Max files per language to process (default: 100)
     #[arg(short = 'x', long)]
     max_files: Option<usize>,
@@ -64,12 +68,79 @@ fn main() -> Result<()> {
     }
 
     if let Some(dir) = &cli.dir {
-        scan_directory(dir, &cli)?;
+        if let Some(pattern) = &cli.find {
+            // -d DIR -n PATTERN: find files matching pattern in directory
+            find_files_by_name(dir, pattern, &cli)?;
+        } else {
+            scan_directory(dir, &cli)?;
+        }
     } else if let Some(file) = &cli.file {
         handle_file(file, &cli)?;
     } else {
         eprintln!("Error: provide -f FILE or -d DIR");
         std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+fn find_files_by_name(dir_path: &str, pattern: &str, cli: &Cli) -> Result<()> {
+    let exclude_dirs = ["target", "node_modules", ".git", ".idea", ".vscode", "build", "dist", ".gradle", ".maven"];
+
+    fn path_has_excluded(path: &std::path::Path, dir_path: &str, exclude_dirs: &[&str]) -> bool {
+        let relative = match path.strip_prefix(dir_path) {
+            Ok(r) => r,
+            Err(_) => return false,
+        };
+        relative.components().any(|c| {
+            let name = c.as_os_str().to_str().unwrap_or("");
+            exclude_dirs.contains(&name)
+        })
+    }
+
+    let pattern_lower = pattern.to_lowercase();
+    let mut matches = Vec::new();
+
+    for entry in WalkDir::new(dir_path)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| !path_has_excluded(e.path(), dir_path, &exclude_dirs))
+        .filter_map(|e| e.ok())
+    {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let file_name = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+
+        if file_name.to_lowercase().contains(&pattern_lower) {
+            matches.push(path.to_string_lossy().to_string());
+        }
+    }
+
+    if matches.is_empty() {
+        println!("No files matching '{}' found in {}", pattern, dir_path);
+        return Ok(());
+    }
+
+    // Sort by path for consistent output
+    matches.sort();
+
+    if matches.len() == 1 {
+        // Single match - always show the file path
+        println!("{}", matches[0]);
+    } else {
+        // Multiple matches - just list files
+        if cli.json {
+            println!("{}", serde_json::to_string_pretty(&matches)?);
+        } else {
+            for m in &matches {
+                println!("{}", m);
+            }
+        }
     }
 
     Ok(())
@@ -291,17 +362,48 @@ fn handle_file(file: &str, cli: &Cli) -> Result<()> {
         None => {}
     }
 
-    // Default: list all methods when no flag given
+    // Default: show class skeleton for all classes when no flag given
     if cli.method.is_none() && cli.class.is_none() && !cli.imports && cli.inheritance.is_none() {
+        let classes = parser.list_classes();
         if cli.json {
-            let methods = parser.list_methods();
-            let output: Vec<_> = methods.iter().map(|(c, s)| json!({
-                "class_name": c,
-                "signature": s,
-            })).collect();
-            println!("{}", serde_json::to_string_pretty(&output)?);
+            let mut all_classes = vec![];
+            for cls in &classes {
+                if let Some(info) = parser.get_class_skeleton(cls) {
+                    all_classes.push(info);
+                }
+            }
+            // Only use class skeletons if they have content (methods or fields)
+            let has_content = all_classes.iter().any(|c: &ClassInfo| !c.methods.is_empty() || !c.fields.is_empty());
+            if !all_classes.is_empty() && has_content {
+                println!("{}", serde_json::to_string_pretty(&all_classes)?);
+            } else {
+                // Fall back to method list
+                let methods = parser.list_methods();
+                let output: Vec<_> = methods.iter().map(|(c, s)| json!({
+                    "class_name": c,
+                    "signature": s,
+                })).collect();
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            }
         } else {
-            print_method_list(file, &parser.list_methods(), cli.max_methods);
+            if !classes.is_empty() {
+                let mut any_has_content = false;
+                for cls in &classes {
+                    if let Some(info) = parser.get_class_skeleton(cls) {
+                        if !info.methods.is_empty() || !info.fields.is_empty() {
+                            any_has_content = true;
+                            print_class_skeleton(&info);
+                        }
+                    }
+                }
+                // If no class had content, fall back to method list
+                if !any_has_content {
+                    print_method_list(file, &parser.list_methods(), cli.max_methods);
+                }
+            } else {
+                // Fall back to method list for languages without classes
+                print_method_list(file, &parser.list_methods(), cli.max_methods);
+            }
         }
     }
 

@@ -11,10 +11,6 @@ const CLASSES_QUERY: &str = r#"
     (class_declaration name: (identifier) @name) @class
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (invocation_expression function: (member_access_expression name: (identifier) @call))
-"#;
-
 pub struct CSharpParser(pub CoreParser);
 
 impl CSharpParser {
@@ -25,7 +21,7 @@ impl CSharpParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            None,
         )?))
     }
 }
@@ -37,10 +33,6 @@ impl LanguageParser for CSharpParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["class_declaration"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["method_declaration"]
     }
 
     fn build_signature(&self, node: Node) -> String {

@@ -2,7 +2,7 @@ use anyhow::Result;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Node, QueryCursor};
 
-use crate::types::ClassInfo;
+use crate::types::{ClassInfo, ImportInfo};
 
 use super::base::{CoreParser, LanguageParser};
 
@@ -21,8 +21,8 @@ const CLASSES_QUERY: &str = r#"
     ]
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (method_invocation name: (identifier) @call)
+const IMPORTS_QUERY: &str = r#"
+    (import_declaration (scoped_identifier) @name) @import
 "#;
 
 pub struct JavaParser(pub CoreParser);
@@ -35,7 +35,7 @@ impl JavaParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            Some(IMPORTS_QUERY),
         )?))
     }
 }
@@ -47,10 +47,6 @@ impl LanguageParser for JavaParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["class_declaration", "interface_declaration", "enum_declaration"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["method_declaration", "constructor_declaration"]
     }
 
     fn build_signature(&self, node: Node) -> String {
@@ -103,6 +99,26 @@ impl LanguageParser for JavaParser {
             }
         }
         annotations
+    }
+
+    fn get_method_params(&self, node: Node) -> Vec<String> {
+        let core = &self.0;
+        let mut params = vec![];
+        if let Some(params_node) = node.child_by_field_name("parameters") {
+            for child in params_node.children(&mut params_node.walk()) {
+                if child.kind() == "formal_parameter" {
+                    params.push(core.text(child).to_string());
+                }
+            }
+        }
+        params
+    }
+
+    fn get_method_return_type(&self, node: Node) -> Option<String> {
+        if node.kind() == "method_declaration" {
+            return node.child_by_field_name("type").map(|n| self.0.text(n).to_string());
+        }
+        None
     }
 
     fn get_class_skeleton(&self, name: &str) -> Option<ClassInfo> {
@@ -194,8 +210,9 @@ impl LanguageParser for JavaParser {
             name: name.to_string(),
             kind,
             annotations: class_annotations,
-            superclass,
-            interfaces,
+            superclass: superclass.clone(),
+            interfaces: interfaces.clone(),
+            extends: superclass.into_iter().chain(interfaces).collect(),
             fields,
             methods,
         })
@@ -212,5 +229,66 @@ impl LanguageParser for JavaParser {
             }
         }
         fields
+    }
+
+    fn get_extends(&self, class_node: Node) -> Vec<String> {
+        let mut result = vec![];
+        if let Some(superclass) = class_node.child_by_field_name("superclass") {
+            result.push(self.0.text(superclass).to_string());
+        }
+        if let Some(interfaces) = class_node.child_by_field_name("interfaces") {
+            let text = self.0.text(interfaces);
+            let trimmed = text.trim_start_matches("implements").trim();
+            for part in trimmed.split(',') {
+                let s = part.trim().to_string();
+                if !s.is_empty() {
+                    result.push(s);
+                }
+            }
+        }
+        result
+    }
+
+    fn list_imports(&self) -> Vec<ImportInfo> {
+        let core = &self.0;
+        let imports_q = match &core.imports_query {
+            Some(q) => q,
+            None => return vec![],
+        };
+        let import_idx = match imports_q.capture_index_for_name("import") {
+            Some(i) => i,
+            None => return vec![],
+        };
+        let name_idx = imports_q.capture_index_for_name("name");
+
+        let mut cursor = QueryCursor::new();
+        let mut matches =
+            cursor.matches(imports_q, core.tree.root_node(), core.source.as_slice());
+
+        let mut imports = vec![];
+        while let Some(m) = matches.next() {
+            let mut name = String::new();
+            let mut line = 0;
+            for cap in m.captures {
+                if cap.index == import_idx {
+                    line = cap.node.start_position().row + 1;
+                }
+                if let Some(name_i) = name_idx {
+                    if cap.index == name_i {
+                        name = core.text(cap.node).to_string();
+                    }
+                }
+            }
+            if !name.is_empty() {
+                imports.push(ImportInfo {
+                    _name: name.clone(),
+                    path: name,
+                    _is_wildcard: false,
+                    line,
+                });
+            }
+        }
+        imports.sort_by_key(|i| i.line);
+        imports
     }
 }

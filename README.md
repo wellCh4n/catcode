@@ -11,29 +11,25 @@ cargo build --release
 # binary at: target/release/catcode
 ```
 
-## Commands
+## Features
 
-### Single file
+| Flag | Description |
+|------|-------------|
+| `-f <file>` | Source file to analyze |
+| `-m <method>` | Show method detail (body, line range, calls) |
+| `-c` | List all classes/structs/types |
+| `-c <name>` | Show class skeleton (fields + methods) |
+| `-i` | List imports/dependencies |
+| `-I [<class>]` | Show inheritance hierarchy (all classes or specific one) |
+| `-d <dir>` | Scan directory for all files |
+| `-x <n>` | Max files to process in directory mode |
+
+### Directory Scanning
 
 ```bash
-catcode -f <file>               # list all methods (grouped by class)
-catcode -f <file> -m <method>   # show method body, class, and outgoing calls
-catcode -f <file> -c            # list all classes / structs
-catcode -f <file> -c <class>    # show class skeleton (fields + methods)
-catcode -f <file> -r <method>   # find callers of method in this file
+catcode -d ./src                    # scan directory, detect languages
+catcode -d ./src -x 10              # limit to 10 files
 ```
-
-### Directory (recursive scan)
-
-```bash
-catcode -d <dir>                # list all methods across all supported files
-catcode -d <dir> -m <method>    # find and show method across all files
-catcode -d <dir> -c             # list all classes across all files
-catcode -d <dir> -c <class>     # find and show class skeleton across all files
-catcode -d <dir> -r <method>    # find all callers of method across all files
-```
-
-Results are grouped by file path. Files that fail to parse are silently skipped.
 
 ---
 
@@ -47,12 +43,17 @@ Results are grouped by file path. Files that fail to parse are silently skipped.
 | Show method | ✅ body, line range, class, outgoing calls |
 | List classes | ✅ class / interface / enum |
 | Class skeleton | ✅ class-level annotations, extends, implements, fields, methods |
+| Imports | ✅ |
+| Inheritance | ✅ |
 
 ```bash
 catcode -f UserService.java
 catcode -f UserService.java -m createUser
 catcode -f UserService.java -c
 catcode -f UserService.java -c UserService
+catcode -f UserService.java -i
+catcode -f UserService.java -I          # show all inheritance
+catcode -f UserService.java -I AdminService  # show specific class
 ```
 
 ---
@@ -65,12 +66,17 @@ catcode -f UserService.java -c UserService
 | Show method | ✅ body, line range, class, outgoing calls |
 | List classes | ✅ |
 | Class skeleton | ✅ fields + methods |
+| Imports | ✅ |
+| Inheritance | ✅ |
 
 ```bash
 catcode -f views.py
 catcode -f views.py -m get_users
 catcode -f views.py -c
 catcode -f views.py -c UserView
+catcode -f views.py -i
+catcode -f views.py -I              # show all inheritance
+catcode -f views.py -I UserView     # show specific class
 ```
 
 ---
@@ -83,12 +89,14 @@ catcode -f views.py -c UserView
 | Show method | ✅ body, line range, receiver type, outgoing calls |
 | List structs | ✅ |
 | Struct skeleton | ✅ fields + all methods on the type |
+| Imports | ✅ |
 
 ```bash
 catcode -f adaptor.go
 catcode -f adaptor.go -m ConvertRequest
 catcode -f adaptor.go -c
 catcode -f adaptor.go -c Adaptor
+catcode -f adaptor.go -i
 ```
 
 ---
@@ -119,12 +127,17 @@ catcode -f client.rs -c Client
 | Show method | ✅ body, line range, class, outgoing calls |
 | List classes | ✅ |
 | Class skeleton | ✅ fields + methods |
+| Imports | ✅ |
+| Inheritance | ✅ |
 
 ```bash
 catcode -f user.service.ts
 catcode -f user.service.ts -m getUsers
 catcode -f user.service.ts -c
 catcode -f user.service.ts -c UserService
+catcode -f user.service.ts -i
+catcode -f user.service.ts -I              # show all inheritance
+catcode -f user.service.ts -I UserService  # show specific class
 ```
 
 ---
@@ -138,24 +151,147 @@ catcode -f user.service.ts -c UserService
 | List classes | ✅ |
 | Class skeleton | ✅ methods |
 
+```bash
+catcode -f app.js
+catcode -f app.js -m getData
+catcode -f app.js -c
+catcode -f app.js -c App
+```
+
 ---
 
-### C `.c` `.h` / C++ `.cpp` `.cc` `.cxx` `.hpp`
+### Ruby `.rb`
+
+| Feature | Support |
+|---------|---------|
+| List methods | ✅ with params |
+| Show method | ✅ body, line range, class |
+| List classes | ✅ |
+| Class skeleton | ✅ methods |
+
+```bash
+catcode -f user.rb
+catcode -f user.rb -m find_by_id
+catcode -f user.rb -c
+catcode -f user.rb -c User
+```
+
+---
+
+### Kotlin `.kt` `.kts`
+
+| Feature | Support |
+|---------|---------|
+| List methods | ✅ with params + return type |
+| Show method | ✅ body, line range, class |
+| List classes | ✅ |
+| Class skeleton | ✅ fields + methods |
+
+```bash
+catcode -f UserService.kt
+catcode -f UserService.kt -m createUser
+catcode -f UserService.kt -c
+catcode -f UserService.kt -c UserService
+```
+
+---
+
+### Swift `.swift`
+
+| Feature | Support |
+|---------|---------|
+| List methods | ✅ with params + return type |
+| Show method | ✅ body, line range |
+| List classes | ✅ class / struct |
+| Class skeleton | ✅ fields + methods |
+
+```bash
+catcode -f UserService.swift
+catcode -f UserService.swift -m createUser
+catcode -f UserService.swift -c
+catcode -f UserService.swift -c UserService
+```
+
+---
+
+### C# `.cs`
+
+| Feature | Support |
+|---------|---------|
+| List methods | ✅ with params + return type |
+| Show method | ✅ body, line range, class |
+| List classes | ✅ |
+| Class skeleton | ✅ fields + methods |
+
+```bash
+catcode -f UserService.cs
+catcode -f UserService.cs -m CreateUser
+catcode -f UserService.cs -c
+catcode -f UserService.cs -c UserService
+```
+
+---
+
+### PHP `.php`
+
+| Feature | Support |
+|---------|---------|
+| List methods | ✅ with params |
+| Show method | ✅ body, line range, class |
+| List classes | ✅ |
+| Class skeleton | ✅ methods |
+
+```bash
+catcode -f user.php
+catcode -f user.php -m createUser
+catcode -f user.php -c
+catcode -f user.php -c User
+```
+
+---
+
+### C `.c` `.h`
 
 | Feature | Support |
 |---------|---------|
 | List methods | ✅ return type + name + params |
 | Show method | ✅ body, line range |
-| List classes | ❌ |
-| Class skeleton | ❌ |
+
+```bash
+catcode -f main.c
+catcode -f main.c -m main
+```
 
 ---
 
-### Ruby `.rb` / Kotlin `.kt` `.kts` / Swift `.swift` / C# `.cs` / PHP `.php`
+### C++ `.cpp` `.cc` `.cxx` `.hpp`
 
 | Feature | Support |
 |---------|---------|
-| List methods | ✅ |
+| List methods | ✅ return type + name + params |
 | Show method | ✅ body, line range |
-| List classes | ✅ |
-| Class skeleton | ✅ methods |
+
+```bash
+catcode -f main.cpp
+catcode -f main.cpp -m main
+```
+
+---
+
+## Feature Summary by Language
+
+| Language | Methods | Classes | Skeleton | Imports | Inheritance |
+|----------|---------|---------|---------|---------|-------------|
+| Java | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Python | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Go | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Rust | ✅ | ✅ | ✅ | ❌ | ❌ |
+| TypeScript | ✅ | ✅ | ✅ | ✅ | ✅ |
+| JavaScript | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Ruby | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Kotlin | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Swift | ✅ | ✅ | ✅ | ❌ | ❌ |
+| C# | ✅ | ✅ | ✅ | ❌ | ❌ |
+| PHP | ✅ | ✅ | ✅ | ❌ | ❌ |
+| C | ✅ | ❌ | ❌ | ❌ | ❌ |
+| C++ | ✅ | ❌ | ❌ | ❌ | ❌ |

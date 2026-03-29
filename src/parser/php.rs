@@ -11,10 +11,6 @@ const CLASSES_QUERY: &str = r#"
     (class_declaration name: (name) @name) @class
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (function_call_expression function: (name) @call)
-"#;
-
 pub struct PhpParser(pub CoreParser);
 
 impl PhpParser {
@@ -25,7 +21,7 @@ impl PhpParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            None,
         )?))
     }
 }
@@ -37,10 +33,6 @@ impl LanguageParser for PhpParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["class_declaration"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["function_definition", "method_declaration"]
     }
 
     fn build_signature(&self, node: Node) -> String {

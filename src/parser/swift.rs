@@ -10,12 +10,7 @@ const QUERY: &str = r#"
 const CLASSES_QUERY: &str = r#"
     [
       (class_declaration name: (type_identifier) @name) @class
-      (struct_declaration name: (type_identifier) @name) @class
     ]
-"#;
-
-const CALLS_QUERY: &str = r#"
-    (call_expression function: (simple_identifier) @call)
 "#;
 
 pub struct SwiftParser(pub CoreParser);
@@ -28,7 +23,7 @@ impl SwiftParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            None,
         )?))
     }
 }
@@ -40,10 +35,6 @@ impl LanguageParser for SwiftParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["class_declaration", "struct_declaration"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["function_declaration"]
     }
 
     fn build_signature(&self, node: Node) -> String {

@@ -11,10 +11,6 @@ const CLASSES_QUERY: &str = r#"
     (class name: (constant) @name) @class
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (call method: (identifier) @call)
-"#;
-
 pub struct RubyParser(pub CoreParser);
 
 impl RubyParser {
@@ -25,7 +21,7 @@ impl RubyParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            None,
         )?))
     }
 }
@@ -37,10 +33,6 @@ impl LanguageParser for RubyParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["class"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["method"]
     }
 
     fn build_signature(&self, node: Node) -> String {

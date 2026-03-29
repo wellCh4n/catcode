@@ -2,14 +2,14 @@ use anyhow::Result;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor, Tree};
 
-use crate::types::{CallerInfo, ClassInfo, MethodInfo};
+use crate::types::{ClassInfo, ImportInfo, MethodInfo};
 
 pub struct CoreParser {
     pub source: Vec<u8>,
     pub tree: Tree,
     pub query: Query,
     pub classes_query: Option<Query>,
-    pub calls_query: Option<Query>,
+    pub imports_query: Option<Query>,
     #[allow(dead_code)]
     pub language: Language,
 }
@@ -20,7 +20,7 @@ impl CoreParser {
         language: Language,
         query_str: &str,
         classes_query_str: Option<&str>,
-        calls_query_str: Option<&str>,
+        imports_query_str: Option<&str>,
     ) -> Result<Self> {
         let mut parser = Parser::new();
         parser.set_language(&language)?;
@@ -31,7 +31,7 @@ impl CoreParser {
         let classes_query = classes_query_str
             .map(|s| Query::new(&language, s))
             .transpose()?;
-        let calls_query = calls_query_str
+        let imports_query = imports_query_str
             .map(|s| Query::new(&language, s))
             .transpose()?;
         Ok(Self {
@@ -39,7 +39,7 @@ impl CoreParser {
             tree,
             query,
             classes_query,
-            calls_query,
+            imports_query,
             language,
         })
     }
@@ -75,33 +75,6 @@ impl CoreParser {
         }
         None
     }
-
-    /// Get calls within a node's byte range using the calls_query.
-    pub fn get_calls(&self, node: Node) -> Vec<String> {
-        let calls_q = match &self.calls_query {
-            Some(q) => q,
-            None => return vec![],
-        };
-        let call_idx = match calls_q.capture_index_for_name("call") {
-            Some(i) => i,
-            None => return vec![],
-        };
-        let mut cursor = QueryCursor::new();
-        cursor.set_byte_range(node.byte_range());
-        let mut matches =
-            cursor.matches(calls_q, self.tree.root_node(), self.source.as_slice());
-        let mut calls = vec![];
-        while let Some(m) = matches.next() {
-            for cap in m.captures {
-                if cap.index == call_idx {
-                    calls.push(self.text(cap.node).to_string());
-                }
-            }
-        }
-        calls.sort();
-        calls.dedup();
-        calls
-    }
 }
 
 /// Trait that every language parser must implement.
@@ -110,10 +83,6 @@ pub trait LanguageParser: Send + Sync {
 
     fn class_node_types(&self) -> &[&str] {
         &[]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["function_definition", "method_definition", "function_declaration"]
     }
 
     fn build_signature(&self, node: Node) -> String;
@@ -162,17 +131,29 @@ pub trait LanguageParser: Send + Sync {
                 let body = core.text(node).to_string();
                 let start_line = node.start_position().row + 1;
                 let end_line = node.end_position().row + 1;
-                let calls = core.get_calls(node);
+                let params = self.get_method_params(node);
+                let return_type = self.get_method_return_type(node);
                 return Some(MethodInfo {
                     signature: sig,
                     class_name,
                     body,
                     start_line,
                     end_line,
-                    calls,
+                    params,
+                    return_type,
                 });
             }
         }
+        None
+    }
+
+    fn get_method_params(&self, node: Node) -> Vec<String> {
+        let _ = node;
+        vec![]
+    }
+
+    fn get_method_return_type(&self, node: Node) -> Option<String> {
+        let _ = node;
         None
     }
 
@@ -251,6 +232,7 @@ pub trait LanguageParser: Send + Sync {
             annotations: self.get_class_annotations(class_node),
             superclass: self.get_superclass(class_node),
             interfaces: self.get_interfaces(class_node),
+            extends: self.get_extends(class_node),
             fields,
             methods,
         })
@@ -285,61 +267,12 @@ pub trait LanguageParser: Send + Sync {
         vec![]
     }
 
-    fn find_callers(&self, method_name: &str) -> Vec<CallerInfo> {
-        let core = self.core();
-        let calls_q = match &core.calls_query {
-            Some(q) => q,
-            None => return vec![],
-        };
-        let call_idx = match calls_q.capture_index_for_name("call") {
-            Some(i) => i,
-            None => return vec![],
-        };
-
-        let mut cursor = QueryCursor::new();
-        let mut matches =
-            cursor.matches(calls_q, core.tree.root_node(), core.source.as_slice());
-
-        let mut results = vec![];
-        while let Some(m) = matches.next() {
-            for cap in m.captures {
-                if cap.index == call_idx && core.text(cap.node) == method_name {
-                    let call_node = cap.node;
-                    // Find enclosing method
-                    let (caller_method, caller_class, start_line, end_line) =
-                        self.find_enclosing_method(call_node);
-                    results.push(CallerInfo {
-                        file: String::new(), // filled in by scanner
-                        caller_class,
-                        caller_method,
-                        start_line,
-                        end_line,
-                    });
-                }
-            }
-        }
-        results
+    fn get_extends(&self, class_node: Node) -> Vec<String> {
+        let _ = class_node;
+        vec![]
     }
 
-    fn find_enclosing_method(
-        &self,
-        node: Node,
-    ) -> (Option<String>, Option<String>, usize, usize) {
-        let method_types = self.method_node_types();
-        let mut parent = node.parent();
-        while let Some(p) = parent {
-            if method_types.contains(&p.kind()) {
-                let core = self.core();
-                let name = core
-                    .method_name_from_node(p)
-                    .map(|s| s.to_string());
-                let class = self.enclosing_class(p);
-                let start = p.start_position().row + 1;
-                let end = p.end_position().row + 1;
-                return (name, class, start, end);
-            }
-            parent = p.parent();
-        }
-        (None, None, node.start_position().row + 1, node.end_position().row + 1)
+    fn list_imports(&self) -> Vec<ImportInfo> {
+        vec![]
     }
 }

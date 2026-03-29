@@ -1,0 +1,58 @@
+use std::process::Command;
+
+fn catcode() -> Command {
+    Command::new(env!("CARGO_BIN_EXE_catcode"))
+}
+
+fn fixture(path: &str) -> String {
+    format!("tests/javascript/{}", path)
+}
+
+// ============ Feature: List Methods (default) ============
+#[test]
+fn test_javascript_list_methods() {
+    let output = catcode()
+        .args(["-f", &fixture("app.js")])
+        .output()
+        .expect("failed to execute catcode");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("createUser"));
+    assert!(stdout.contains("getUser"));
+    assert!(stdout.contains("deleteUser"));
+}
+
+// ============ Feature: Method Detail ============
+#[test]
+fn test_javascript_method_detail() {
+    let output = catcode()
+        .args(["-f", &fixture("app.js"), "-m", "createUser"])
+        .output()
+        .expect("failed to execute catcode");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("createUser"));
+    assert!(stdout.contains("L"));
+}
+
+// ============ Feature: List Classes ============
+#[test]
+fn test_javascript_list_classes() {
+    let output = catcode()
+        .args(["-f", &fixture("app.js"), "-c"])
+        .output()
+        .expect("failed to execute catcode");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("UserService"));
+}
+
+// ============ Feature: Class Skeleton ============
+#[test]
+fn test_javascript_class_skeleton() {
+    let output = catcode()
+        .args(["-f", &fixture("app.js"), "-c", "UserService"])
+        .output()
+        .expect("failed to execute catcode");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("UserService"));
+    assert!(stdout.contains("createUser"));
+}
+

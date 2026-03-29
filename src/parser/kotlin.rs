@@ -11,10 +11,6 @@ const CLASSES_QUERY: &str = r#"
     (class_declaration (type_identifier) @name) @class
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (call_expression calleeExpression: (simple_identifier) @call)
-"#;
-
 pub struct KotlinParser(pub CoreParser);
 
 impl KotlinParser {
@@ -29,7 +25,7 @@ impl KotlinParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            None,
         )?))
     }
 }
@@ -41,10 +37,6 @@ impl LanguageParser for KotlinParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["class_declaration"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["function_declaration"]
     }
 
     fn build_signature(&self, node: Node) -> String {

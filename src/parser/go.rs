@@ -2,7 +2,7 @@ use anyhow::Result;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Node, QueryCursor};
 
-use crate::types::ClassInfo;
+use crate::types::{ClassInfo, ImportInfo};
 
 use super::base::{CoreParser, LanguageParser};
 
@@ -19,11 +19,8 @@ const CLASSES_QUERY: &str = r#"
         type: (struct_type)) @class)
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (call_expression function: [
-      (identifier) @call
-      (selector_expression field: (field_identifier) @call)
-    ])
+const IMPORTS_QUERY: &str = r#"
+    (import_declaration) @import
 "#;
 
 pub struct GoParser(pub CoreParser);
@@ -36,7 +33,7 @@ impl GoParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            Some(IMPORTS_QUERY),
         )?))
     }
 }
@@ -48,10 +45,6 @@ impl LanguageParser for GoParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["type_spec"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["function_declaration", "method_declaration"]
     }
 
     fn enclosing_class(&self, node: Node) -> Option<String> {
@@ -155,8 +148,43 @@ impl LanguageParser for GoParser {
             annotations: vec![],
             superclass: None,
             interfaces: vec![],
+            extends: vec![],
             fields,
             methods,
         })
+    }
+
+    fn list_imports(&self) -> Vec<ImportInfo> {
+        let core = &self.0;
+        let imports_q = match &core.imports_query {
+            Some(q) => q,
+            None => return vec![],
+        };
+        let import_idx = match imports_q.capture_index_for_name("import") {
+            Some(i) => i,
+            None => return vec![],
+        };
+
+        let mut cursor = QueryCursor::new();
+        let mut matches =
+            cursor.matches(imports_q, core.tree.root_node(), core.source.as_slice());
+
+        let mut imports = vec![];
+        while let Some(m) = matches.next() {
+            for cap in m.captures {
+                if cap.index == import_idx {
+                    let line = cap.node.start_position().row + 1;
+                    let text = core.text(cap.node);
+                    imports.push(ImportInfo {
+                        _name: text.to_string(),
+                        path: text.to_string(),
+                        _is_wildcard: false,
+                        line,
+                    });
+                }
+            }
+        }
+        imports.sort_by_key(|i| i.line);
+        imports
     }
 }

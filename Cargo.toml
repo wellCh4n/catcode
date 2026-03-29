@@ -7,6 +7,58 @@ edition = "2021"
 name = "catcode"
 path = "src/main.rs"
 
+[[test]]
+name = "java"
+path = "tests/java/java_parsing.rs"
+
+[[test]]
+name = "python"
+path = "tests/python/python_parsing.rs"
+
+[[test]]
+name = "typescript"
+path = "tests/typescript/typescript_parsing.rs"
+
+[[test]]
+name = "go"
+path = "tests/go/go_parsing.rs"
+
+[[test]]
+name = "rust"
+path = "tests/rust/rust_parsing.rs"
+
+[[test]]
+name = "javascript"
+path = "tests/javascript/javascript_parsing.rs"
+
+[[test]]
+name = "ruby"
+path = "tests/ruby/ruby_parsing.rs"
+
+[[test]]
+name = "kotlin"
+path = "tests/kotlin/kotlin_parsing.rs"
+
+[[test]]
+name = "swift"
+path = "tests/swift/swift_parsing.rs"
+
+[[test]]
+name = "csharp"
+path = "tests/csharp/csharp_parsing.rs"
+
+[[test]]
+name = "php"
+path = "tests/php/php_parsing.rs"
+
+[[test]]
+name = "c"
+path = "tests/c/c_parsing.rs"
+
+[[test]]
+name = "cpp"
+path = "tests/cpp/cpp_parsing.rs"
+
 [dependencies]
 tree-sitter = "0.25"
 tree-sitter-java = "0.23"
@@ -23,6 +75,8 @@ tree-sitter-swift = "0.6"
 tree-sitter-c-sharp = "0.23"
 tree-sitter-php = "0.23"
 clap = { version = "4", features = ["derive"] }
-walkdir = "2"
 anyhow = "1"
 streaming-iterator = "0.1"
+walkdir = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

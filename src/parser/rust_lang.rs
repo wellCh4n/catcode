@@ -14,14 +14,6 @@ const CLASSES_QUERY: &str = r#"
     ]
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (call_expression function: [
-      (identifier) @call
-      (field_expression field: (field_identifier) @call)
-      (scoped_identifier name: (identifier) @call)
-    ])
-"#;
-
 pub struct RustLangParser(pub CoreParser);
 
 impl RustLangParser {
@@ -32,7 +24,7 @@ impl RustLangParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            None,
         )?))
     }
 }
@@ -44,10 +36,6 @@ impl LanguageParser for RustLangParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["impl_item"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["function_item"]
     }
 
     fn build_signature(&self, node: Node) -> String {

@@ -58,10 +58,6 @@ impl LanguageParser for CParser {
         &self.0
     }
 
-    fn method_node_types(&self) -> &[&str] {
-        &["function_definition"]
-    }
-
     fn build_signature(&self, node: Node) -> String {
         build_c_signature(&self.0, node)
     }
@@ -74,10 +70,6 @@ impl LanguageParser for CppParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["class_specifier"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["function_definition"]
     }
 
     fn build_signature(&self, node: Node) -> String {

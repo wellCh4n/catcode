@@ -1,5 +1,8 @@
 use anyhow::Result;
-use tree_sitter::{Language, Node};
+use streaming_iterator::StreamingIterator;
+use tree_sitter::{Language, Node, QueryCursor};
+
+use crate::types::ImportInfo;
 
 use super::base::{CoreParser, LanguageParser};
 
@@ -15,11 +18,8 @@ const CLASSES_QUERY: &str = r#"
     (class_declaration name: (type_identifier) @name) @class
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (call_expression function: [
-      (identifier) @call
-      (member_expression property: (property_identifier) @call)
-    ])
+const IMPORTS_QUERY: &str = r#"
+    (import_statement) @import
 "#;
 
 pub struct TypeScriptParser(pub CoreParser);
@@ -33,7 +33,7 @@ impl TypeScriptParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            Some(IMPORTS_QUERY),
         )?))
     }
 }
@@ -46,7 +46,7 @@ impl TsxParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            Some(IMPORTS_QUERY),
         )?))
     }
 }
@@ -93,16 +93,43 @@ impl LanguageParser for TypeScriptParser {
         &["class_declaration", "class"]
     }
 
-    fn method_node_types(&self) -> &[&str] {
-        &["function_declaration", "method_definition"]
-    }
-
     fn get_annotations(&self, node: Node) -> Vec<String> {
         get_ts_annotations(&self.0, node)
     }
 
     fn build_signature(&self, node: Node) -> String {
         build_ts_signature(&self.0, node)
+    }
+
+    fn get_method_params(&self, node: Node) -> Vec<String> {
+        let core = &self.0;
+        let mut params = vec![];
+        if let Some(params_node) = node.child_by_field_name("parameters") {
+            for child in params_node.children(&mut params_node.walk()) {
+                if child.kind() == "required_parameter" || child.kind() == "optional_parameter" || child.kind() == "rest_parameter" {
+                    params.push(core.text(child).to_string());
+                }
+            }
+        }
+        params
+    }
+
+    fn get_method_return_type(&self, node: Node) -> Option<String> {
+        node.child_by_field_name("return_type").map(|n| self.0.text(n).to_string())
+    }
+
+    fn get_extends(&self, class_node: Node) -> Vec<String> {
+        let core = &self.0;
+        let mut result = vec![];
+        // TypeScript: class Foo extends Bar
+        if let Some(extends_clause) = class_node.child_by_field_name("superclass") {
+            result.push(core.text(extends_clause).to_string());
+        }
+        result
+    }
+
+    fn list_imports(&self) -> Vec<ImportInfo> {
+        list_ts_imports(&self.0)
     }
 }
 
@@ -115,10 +142,6 @@ impl LanguageParser for TsxParser {
         &["class_declaration", "class"]
     }
 
-    fn method_node_types(&self) -> &[&str] {
-        &["function_declaration", "method_definition"]
-    }
-
     fn get_annotations(&self, node: Node) -> Vec<String> {
         get_ts_annotations(&self.0, node)
     }
@@ -126,4 +149,67 @@ impl LanguageParser for TsxParser {
     fn build_signature(&self, node: Node) -> String {
         build_ts_signature(&self.0, node)
     }
+
+    fn get_method_params(&self, node: Node) -> Vec<String> {
+        let core = &self.0;
+        let mut params = vec![];
+        if let Some(params_node) = node.child_by_field_name("parameters") {
+            for child in params_node.children(&mut params_node.walk()) {
+                if child.kind() == "required_parameter" || child.kind() == "optional_parameter" || child.kind() == "rest_parameter" {
+                    params.push(core.text(child).to_string());
+                }
+            }
+        }
+        params
+    }
+
+    fn get_method_return_type(&self, node: Node) -> Option<String> {
+        node.child_by_field_name("return_type").map(|n| self.0.text(n).to_string())
+    }
+
+    fn get_extends(&self, class_node: Node) -> Vec<String> {
+        let core = &self.0;
+        let mut result = vec![];
+        if let Some(extends_clause) = class_node.child_by_field_name("superclass") {
+            result.push(core.text(extends_clause).to_string());
+        }
+        result
+    }
+
+    fn list_imports(&self) -> Vec<ImportInfo> {
+        list_ts_imports(&self.0)
+    }
+}
+
+fn list_ts_imports(core: &CoreParser) -> Vec<ImportInfo> {
+    let imports_q = match &core.imports_query {
+        Some(q) => q,
+        None => return vec![],
+    };
+    let import_idx = match imports_q.capture_index_for_name("import") {
+        Some(i) => i,
+        None => return vec![],
+    };
+
+    let mut cursor = QueryCursor::new();
+    let mut matches =
+        cursor.matches(imports_q, core.tree.root_node(), core.source.as_slice());
+
+    let mut imports = vec![];
+    while let Some(m) = matches.next() {
+        for cap in m.captures {
+            if cap.index == import_idx {
+                let line = cap.node.start_position().row + 1;
+                let text = core.text(cap.node);
+                imports.push(ImportInfo {
+                    _name: text.to_string(),
+                    path: text.to_string(),
+                    _is_wildcard: false,
+                    line,
+                });
+            }
+        }
+    }
+    imports.sort_by_key(|i| i.line);
+    imports
 }

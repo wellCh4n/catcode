@@ -14,13 +14,6 @@ const CLASSES_QUERY: &str = r#"
     (class_declaration name: (identifier) @name) @class
 "#;
 
-const CALLS_QUERY: &str = r#"
-    (call_expression function: [
-      (identifier) @call
-      (member_expression property: (property_identifier) @call)
-    ])
-"#;
-
 pub struct JavaScriptParser(pub CoreParser);
 
 impl JavaScriptParser {
@@ -31,7 +24,7 @@ impl JavaScriptParser {
             language,
             QUERY,
             Some(CLASSES_QUERY),
-            Some(CALLS_QUERY),
+            None,
         )?))
     }
 }
@@ -43,10 +36,6 @@ impl LanguageParser for JavaScriptParser {
 
     fn class_node_types(&self) -> &[&str] {
         &["class_declaration", "class"]
-    }
-
-    fn method_node_types(&self) -> &[&str] {
-        &["function_declaration", "method_definition"]
     }
 
     fn build_signature(&self, node: Node) -> String {

@@ -200,14 +200,44 @@ fn print_spaces(space: &FuncSpace, indent: usize, all_fields: &[FieldInfo]) {
 
 // ── find / detail ─────────────────────────────────────────────────────────────
 
-fn find_all_spaces<'a>(space: &'a FuncSpace, name: &str, results: &mut Vec<&'a FuncSpace>) {
-    if space.name.as_deref() == Some(name)
-        && matches!(space.kind, SpaceKind::Function | SpaceKind::Class)
-    {
+const CLASS_KINDS: &[SpaceKind] = &[
+    SpaceKind::Class,
+    SpaceKind::Struct,
+    SpaceKind::Impl,
+    SpaceKind::Interface,
+];
+
+fn find_all_spaces<'a>(
+    space: &'a FuncSpace,
+    name: &str,
+    kind_filter: &[SpaceKind],
+    results: &mut Vec<&'a FuncSpace>,
+) {
+    if space.name.as_deref() == Some(name) && kind_filter.contains(&space.kind) {
         results.push(space);
     }
     for child in &space.spaces {
-        find_all_spaces(child, name, results);
+        find_all_spaces(child, name, kind_filter, results);
+    }
+}
+
+/// Find methods named `method_name` that are direct or nested children of a
+/// class space named `class_name`.
+fn find_methods_in_class<'a>(
+    space: &'a FuncSpace,
+    class_name: &str,
+    method_name: &str,
+    results: &mut Vec<&'a FuncSpace>,
+) {
+    if space.name.as_deref() == Some(class_name) && CLASS_KINDS.contains(&space.kind) {
+        // Search for the method only within this class subtree
+        for child in &space.spaces {
+            find_all_spaces(child, method_name, &[SpaceKind::Function], results);
+        }
+        return; // don't descend further for the class search
+    }
+    for child in &space.spaces {
+        find_methods_in_class(child, class_name, method_name, results);
     }
 }
 
@@ -228,7 +258,12 @@ fn print_method_detail(space: &FuncSpace, lines: &[&str]) {
 
 // ── main logic ────────────────────────────────────────────────────────────────
 
-fn analyze_file(path: &Path, method: Option<&str>) {
+struct Query {
+    class: Option<String>,
+    method: Option<String>,
+}
+
+fn analyze_file(path: &Path, query: Option<&Query>) {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let lang = match get_from_ext(ext) {
         Some(l) => l,
@@ -254,11 +289,22 @@ fn analyze_file(path: &Path, method: Option<&str>) {
         }
     };
 
-    if let Some(name) = method {
+    if let Some(q) = query {
         let mut matches = Vec::new();
-        find_all_spaces(&root, name, &mut matches);
+        match (&q.class, &q.method) {
+            (Some(class), Some(method)) => {
+                find_methods_in_class(&root, class, method, &mut matches);
+            }
+            (None, Some(method)) => {
+                find_all_spaces(&root, method, &[SpaceKind::Function], &mut matches);
+            }
+            (Some(class), None) => {
+                find_all_spaces(&root, class, CLASS_KINDS, &mut matches);
+            }
+            (None, None) => {}
+        }
         if matches.is_empty() {
-            eprintln!("Method '{}' not found in {}", name, path.display());
+            eprintln!("not found in {}", path.display());
         } else {
             let src = String::from_utf8_lossy(&code);
             let lines: Vec<&str> = src.lines().collect();
@@ -287,15 +333,22 @@ fn main() {
     }
 
     let mut files: Vec<&str> = Vec::new();
-    let mut method: Option<&str> = None;
+    let mut class: Option<String> = None;
+    let mut method: Option<String> = None;
     let mut i = 0;
     while i < args.len() {
-        if args[i] == "-m" {
+        if args[i] == "-m" || args[i] == "-c" {
+            let flag = args[i].clone();
             i += 1;
             if i < args.len() {
-                method = Some(&args[i]);
+                let name = args[i].clone();
+                if flag == "-m" {
+                    method = Some(name);
+                } else {
+                    class = Some(name);
+                }
             } else {
-                eprintln!("-m requires a method name");
+                eprintln!("{} requires a name", flag);
                 std::process::exit(1);
             }
         } else {
@@ -305,11 +358,17 @@ fn main() {
     }
 
     if files.is_empty() {
-        eprintln!("Usage: catcode <file> [file...] [-m <method>]");
+        eprintln!("Usage: catcode <file> [file...] [-c <class>] [-m <method>]");
         std::process::exit(1);
     }
 
+    let query = if class.is_some() || method.is_some() {
+        Some(Query { class, method })
+    } else {
+        None
+    };
+
     for file in &files {
-        analyze_file(Path::new(file), method);
+        analyze_file(Path::new(file), query.as_ref());
     }
 }

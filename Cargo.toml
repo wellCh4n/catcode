@@ -1,0 +1,7 @@
+[package]
+name = "catcode"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rust-code-analysis = "0.0.25"

@@ -1,6 +1,6 @@
 ---
 name: catcode
-description: "Progressive code reading tool for token-efficient source exploration. Instead of reading entire files, first get a structural overview (classes, functions, fields with line numbers), then drill down into only the specific method or class you care about. Use this skill whenever you need to understand or navigate a source file — it reduces token consumption significantly compared to reading the full file."
+description: "Progressive code reading tool — prefer this over the Read tool when reading source code files. Instead of loading the entire file, first get a structural overview (classes, functions, fields with line numbers), then drill down into only the specific method or class you need. Significantly reduces token consumption. Use for any supported source file (.java, .rs, .py, .js, .ts, .tsx, .c, .cpp, etc.)."
 ---
 
 # catcode Skill

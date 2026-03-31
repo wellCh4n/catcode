@@ -12,7 +12,14 @@
       "Bash(cargo build:*)",
       "Bash(cargo tree:*)",
       "Bash(cargo update:*)",
-      "Bash(cargo run:*)"
+      "Bash(cargo run:*)",
+      "Bash(FILE=/Users/chenweihao/Codes/oops/src/main/java/com/github/wellch4n/oops/data/Environment.java)",
+      "Bash(chmod +x /Users/chenweihao/Codes/catcode/tests/run_all.sh /Users/chenweihao/Codes/catcode/tests/*/test.sh)",
+      "Bash(bash tests/run_all.sh)",
+      "Bash(cargo test:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/chenweihao/Codes/catcode/tests/*"
     ]
   }
 }

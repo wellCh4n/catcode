@@ -8,6 +8,9 @@ struct FieldInfo {
     name: String,
     ty: String,
     line: usize,
+    /// For Rust struct fields: the name of the owning struct, so they can be
+    /// shown under the matching `impl` block even though they live outside it.
+    parent: Option<String>,
 }
 
 /// Returns node text as a trimmed string, collapsing inner whitespace to a
@@ -68,7 +71,7 @@ fn collect_java_fields(node: tree_sitter::Node, code: &[u8], out: &mut Vec<Field
             .map(|n| node_text(n, code))
             .unwrap_or_default();
         if !name.is_empty() {
-            out.push(FieldInfo { name, ty, line });
+            out.push(FieldInfo { name, ty, line, parent: None });
         }
     }
     let mut cursor = node.walk();
@@ -78,18 +81,28 @@ fn collect_java_fields(node: tree_sitter::Node, code: &[u8], out: &mut Vec<Field
 }
 
 fn collect_rust_fields(node: tree_sitter::Node, code: &[u8], out: &mut Vec<FieldInfo>) {
-    if node.kind() == "field_declaration" {
-        let line = node.start_position().row + 1;
-        let name = node
+    if node.kind() == "struct_item" {
+        let parent = node
             .child_by_field_name("name")
-            .map(|n| node_text(n, code))
-            .unwrap_or_default();
-        let ty = node
-            .child_by_field_name("type")
-            .map(|n| node_text(n, code))
-            .unwrap_or_default();
-        if !name.is_empty() {
-            out.push(FieldInfo { name, ty, line });
+            .map(|n| node_text(n, code));
+        if let Some(body) = node.child_by_field_name("body") {
+            let mut cursor = body.walk();
+            for child in body.children(&mut cursor) {
+                if child.kind() == "field_declaration" {
+                    let line = child.start_position().row + 1;
+                    let name = child
+                        .child_by_field_name("name")
+                        .map(|n| node_text(n, code))
+                        .unwrap_or_default();
+                    let ty = child
+                        .child_by_field_name("type")
+                        .map(|n| node_text(n, code))
+                        .unwrap_or_default();
+                    if !name.is_empty() {
+                        out.push(FieldInfo { name, ty, line, parent: parent.clone() });
+                    }
+                }
+            }
         }
     }
     let mut cursor = node.walk();
@@ -110,7 +123,7 @@ fn collect_js_fields(node: tree_sitter::Node, code: &[u8], out: &mut Vec<FieldIn
             .map(|n| node_text(n, code))
             .unwrap_or_default();
         if !name.is_empty() {
-            out.push(FieldInfo { name, ty, line });
+            out.push(FieldInfo { name, ty, line, parent: None });
         }
     }
     let mut cursor = node.walk();
@@ -131,7 +144,7 @@ fn collect_cpp_fields(node: tree_sitter::Node, code: &[u8], out: &mut Vec<FieldI
             .map(|n| node_text(n, code))
             .unwrap_or_default();
         if !name.is_empty() {
-            out.push(FieldInfo { name, ty, line });
+            out.push(FieldInfo { name, ty, line, parent: None });
         }
     }
     let mut cursor = node.walk();
@@ -159,7 +172,10 @@ fn print_spaces(space: &FuncSpace, indent: usize, all_fields: &[FieldInfo]) {
                 prefix, space.kind, name, space.start_line, space.end_line
             );
 
-            // Collect fields that belong to this space but not to any child space
+            // Collect fields that belong to this space.
+            // Primary: fields within this space's line range but not inside a child space.
+            // Secondary (Rust impl): fields whose `parent` name matches this space's name
+            //   (struct fields live outside the impl block's line range).
             let child_ranges: Vec<(usize, usize)> = space
                 .spaces
                 .iter()
@@ -169,9 +185,12 @@ fn print_spaces(space: &FuncSpace, indent: usize, all_fields: &[FieldInfo]) {
             let mut own_fields: Vec<&FieldInfo> = all_fields
                 .iter()
                 .filter(|f| {
-                    f.line >= space.start_line
+                    let by_range = f.line >= space.start_line
                         && f.line <= space.end_line
-                        && !child_ranges.iter().any(|(s, e)| f.line >= *s && f.line <= *e)
+                        && !child_ranges.iter().any(|(s, e)| f.line >= *s && f.line <= *e);
+                    let by_parent = space.kind == SpaceKind::Impl
+                        && f.parent.as_deref() == Some(name);
+                    by_range || by_parent
                 })
                 .collect();
             own_fields.sort_by_key(|f| f.line);
@@ -230,11 +249,13 @@ fn find_methods_in_class<'a>(
     results: &mut Vec<&'a FuncSpace>,
 ) {
     if space.name.as_deref() == Some(class_name) && CLASS_KINDS.contains(&space.kind) {
-        // Search for the method only within this class subtree
+        // Only match direct Function children — do not recurse into nested classes.
         for child in &space.spaces {
-            find_all_spaces(child, method_name, &[SpaceKind::Function], results);
+            if child.name.as_deref() == Some(method_name) && child.kind == SpaceKind::Function {
+                results.push(child);
+            }
         }
-        return; // don't descend further for the class search
+        return;
     }
     for child in &space.spaces {
         find_methods_in_class(child, class_name, method_name, results);

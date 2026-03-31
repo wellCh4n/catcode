@@ -53,6 +53,13 @@ name = "catcode"
 version = "0.1.0"
 dependencies = [
  "rust-code-analysis",
+ "tree-sitter",
+ "tree-sitter-java",
+ "tree-sitter-javascript",
+ "tree-sitter-mozcpp",
+ "tree-sitter-python",
+ "tree-sitter-rust",
+ "tree-sitter-typescript",
 ]
 
 [[package]]
